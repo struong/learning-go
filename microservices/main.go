@@ -1,26 +1,54 @@
 package main
 
 import (
+	"context"
 	"log"
 	"microservices/handlers"
 	"net/http"
 	"os"
+	"os/signal"
+	"time"
 )
 
 func main() {
-	logger := log.New(os.Stdout, "product-api", log.LstdFlags)
+	logger := log.New(os.Stdout, "product-api: ", log.LstdFlags)
 
-	helloHandler := handlers.NewHello(logger)
-	goodbyeHandler := handlers.NewGoodbye(logger)
+	// create the handlers
+	productsHandler := handlers.NewProducts(logger)
 
+	// Create a new serve mux and register the handlers
 	serveMux := http.NewServeMux()
+
 	// Register a handler to path /
-	serveMux.Handle("/", helloHandler)
-	serveMux.Handle("/goodbye", goodbyeHandler)
+	serveMux.Handle("/", productsHandler)
 
-	server := new http.Server{}
+	server := new(http.Server)
+	server.Addr = ":9090"
+	server.Handler = serveMux
+	server.IdleTimeout = 120 * time.Second
+	server.ReadTimeout = 1 * time.Second
+	server.WriteTimeout = 1 * time.Second
 
+	// Do not block http server
+	go func() {
+		err := server.ListenAndServe()
+		if err != nil {
+			logger.Fatal(err)
+		}
+	}()
 
-	// create a web service, bind to every address on my machine to port 9090
-	http.ListenAndServe(":9090", serveMux)
+	signalChannel := make(chan os.Signal)
+
+	// broadcast a message on the signalChannel when we receive these os signals
+	signal.Notify(signalChannel, os.Interrupt)
+	signal.Notify(signalChannel, os.Kill)
+
+	// Reading from a channel will block until there is a message to consume
+	sig := <-signalChannel
+	logger.Println("Recieved terminate, graceful shutdown", sig)
+
+	// 30 seconds to gracefully shutdown
+	timeoutContext, _ := context.WithTimeout(context.Background(), 30*time.Second)
+
+	server.Shutdown(timeoutContext)
 }
