@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"microservices/data"
 	"net/http"
@@ -39,7 +40,7 @@ func (products *Products) GetProducts(responseWriter http.ResponseWriter, reques
 	// responseWriter.Write(data)
 }
 
-func (products Products) AddProduct(responseWriter http.ResponseWriter, request *http.Request) {
+func (products *Products) AddProduct(responseWriter http.ResponseWriter, request *http.Request) {
 	products.logger.Println("Handle POST Products")
 
 	prod := request.Context().Value(KeyProduct{}).(data.Product)
@@ -48,7 +49,7 @@ func (products Products) AddProduct(responseWriter http.ResponseWriter, request 
 	data.AddProduct(&prod)
 }
 
-func (products Products) UpdateProducts(responseWriter http.ResponseWriter, request *http.Request) {
+func (products *Products) UpdateProducts(responseWriter http.ResponseWriter, request *http.Request) {
 	// extract id
 	vars := mux.Vars(request)
 	id, err := strconv.Atoi(vars["id"])
@@ -82,7 +83,15 @@ func (products *Products) MiddlewareProductValidation(next http.Handler) http.Ha
 
 		if err != nil {
 			products.logger.Fatal(err)
-			http.Error(responseWriter, "Unable to unmarshal json", http.StatusBadRequest)
+			http.Error(responseWriter, "Error reading product", http.StatusBadRequest)
+			return
+		}
+
+		// validate the product
+		err = prod.Validate()
+		if err != nil {
+			products.logger.Fatal(err)
+			http.Error(responseWriter, fmt.Sprintf("Error validating product: %s", err), http.StatusBadRequest)
 			return
 		}
 
