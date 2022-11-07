@@ -82,7 +82,7 @@ func (products *Products) MiddlewareProductValidation(next http.Handler) http.Ha
 		err := prod.FromJson(request.Body)
 
 		if err != nil {
-			products.logger.Fatal(err)
+			products.logger.Println(err)
 			http.Error(responseWriter, "Error reading product", http.StatusBadRequest)
 			return
 		}
@@ -90,8 +90,11 @@ func (products *Products) MiddlewareProductValidation(next http.Handler) http.Ha
 		// validate the product
 		err = prod.Validate()
 		if err != nil {
-			products.logger.Fatal(err)
-			http.Error(responseWriter, fmt.Sprintf("Error validating product: %s", err), http.StatusBadRequest)
+			products.logger.Println(err)
+			http.Error(
+				responseWriter,
+				fmt.Sprintf("Error validating product: %s", err),
+				http.StatusBadRequest)
 			return
 		}
 
